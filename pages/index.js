@@ -177,23 +177,23 @@ export default function Home() {
           <div className="header-right">
             <div className="overall-stats">
               <div className="stat-block">
-                <div className={`stat-num ${gpaColor(cgpa)}`}>{cgpa ? cgpa.toFixed(2) : "—"}</div>
+                <div className={`stat-num cgpa-big ${gpaColor(cgpa)}`}>{cgpa ? cgpa.toFixed(2) : "—"}</div>
                 <div className="stat-label">CGPA</div>
               </div>
               <div className="stat-divider" />
-              <div className="stat-block">
-                <div className="stat-num" style={{ color: "var(--accent2)" }}>{overall.total}</div>
-                <div className="stat-label">Total Cr</div>
+              <div className="stat-block stat-block-sm">
+                <div className="stat-num-sm" style={{ color: "var(--accent2)" }}>{overall.total}</div>
+                <div className="stat-label-sm">Total Cr</div>
               </div>
               <div className="stat-divider" />
-              <div className="stat-block">
-                <div className="stat-num" style={{ color: "var(--high)" }}>{overall.earned}</div>
-                <div className="stat-label">Earned Cr</div>
+              <div className="stat-block stat-block-sm">
+                <div className="stat-num-sm" style={{ color: "var(--high)" }}>{overall.earned}</div>
+                <div className="stat-label-sm">Earned Cr</div>
               </div>
               <div className="stat-divider" />
-              <div className="stat-block">
-                <div className="stat-num" style={{ color: "var(--mid)" }}>{overall.graded}</div>
-                <div className="stat-label">Graded Cr</div>
+              <div className="stat-block stat-block-sm">
+                <div className="stat-num-sm" style={{ color: "var(--mid)" }}>{overall.graded}</div>
+                <div className="stat-label-sm">Graded Cr</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -224,7 +224,7 @@ export default function Home() {
 
       <main>
         <div className="shell">
-          <div style={{ marginBottom: 36 }}>
+          <div className="gpa-section" style={{ marginBottom: 36 }}>
             <p className="section-label">GPA — Semester Trend</p>
             <div className="gpa-chart">
               {semesters.map((sem) => {
