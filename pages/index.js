@@ -201,6 +201,19 @@ export default function Home() {
               <button className={`btn-edit-mode${editMode ? " active" : ""}`} onClick={() => { setEditMode((e) => !e); showToast(editMode ? "View mode" : "Edit mode on"); }}>
                 {editMode ? "✓ Done" : "✎ Edit"}
               </button>
+              {!isGuest && user && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {user.user_metadata?.avatar_url
+                    ? <img src={user.user_metadata.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border2)" }} />
+                    : <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accentbg)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--accent2)", fontWeight: 600 }}>
+                        {(user.user_metadata?.full_name || user.email || "?")[0].toUpperCase()}
+                      </div>
+                  }
+                  <span style={{ fontSize: 12, color: "var(--text2)", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {user.user_metadata?.full_name || user.email}
+                  </span>
+                </div>
+              )}
               <button onClick={handleSignOut} style={{ background: "none", border: "1px solid var(--border2)", color: "var(--text3)", borderRadius: 6, padding: "7px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
                 {isGuest ? "Exit guest" : "Sign out"}
               </button>
