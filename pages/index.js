@@ -1,19 +1,26 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
+import { supabase } from "../lib/supabase";
 import {
   DEFAULT_DATA, GRADE_OPTIONS, GRADE_POINTS,
   computeGPA, computeCGPA, semCredits, overallCredits,
   gradeColor, gpaColor, uid,
 } from "../lib/data";
 
-const STORAGE_KEY = "academic_record_v3";
+async function fetchRecord(userId) {
+  const { data } = await supabase
+    .from("academic_records")
+    .select("data")
+    .eq("user_id", userId)
+    .single();
+  return data?.data ?? null;
+}
 
-function loadData() {
-  if (typeof window === "undefined") return DEFAULT_DATA;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_DATA;
-  } catch { return DEFAULT_DATA; }
+async function saveRecord(userId, semesters) {
+  await supabase
+    .from("academic_records")
+    .upsert({ user_id: userId, data: semesters, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
 }
 
 function CreditStrip({ subjects }) {
@@ -44,24 +51,48 @@ function CreditStrip({ subjects }) {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
   const [semesters, setSemesters] = useState(DEFAULT_DATA);
   const [activeSem, setActiveSem] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Auth check
   useEffect(() => {
-    const d = loadData();
-    setSemesters(d);
-    setActiveSem(d[0]?.id ?? null);
-    setHydrated(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
+  // Load data from Supabase
   useEffect(() => {
-    if (hydrated) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(semesters)); } catch {}
-    }
-  }, [semesters, hydrated]);
+    if (!user) return;
+    fetchRecord(user.id).then((saved) => {
+      const d = saved ?? DEFAULT_DATA;
+      setSemesters(d);
+      setActiveSem(d[0]?.id ?? null);
+      setLoading(false);
+    });
+  }, [user]);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (!user || loading) return;
+    setSaving(true);
+    const t = setTimeout(() => {
+      saveRecord(user.id, semesters).then(() => setSaving(false));
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [semesters]);
 
   useEffect(() => {
     if (!toast) return;
@@ -70,6 +101,11 @@ export default function Home() {
   }, [toast]);
 
   const showToast = (msg) => setToast(msg);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const addSemester = () => {
     const n = semesters.length + 1;
@@ -125,6 +161,12 @@ export default function Home() {
   const overall = overallCredits(semesters);
   const currentSem = semesters.find((s) => s.id === activeSem);
 
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter,sans-serif", color: "#55556a", fontSize: 14 }}>
+      Loading your record…
+    </div>
+  );
+
   return (
     <>
       <Head>
@@ -161,12 +203,19 @@ export default function Home() {
                 <div className="stat-label">Graded Cr</div>
               </div>
             </div>
-            <button
-              className={`btn-edit-mode${editMode ? " active" : ""}`}
-              onClick={() => { setEditMode((e) => !e); showToast(editMode ? "View mode" : "Edit mode on"); }}
-            >
-              {editMode ? "✓ Done" : "✎ Edit"}
-            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {saving && <span style={{ fontSize: 11, color: "var(--text3)" }}>Saving…</span>}
+              <button
+                className={`btn-edit-mode${editMode ? " active" : ""}`}
+                onClick={() => { setEditMode((e) => !e); showToast(editMode ? "View mode" : "Edit mode on"); }}
+              >
+                {editMode ? "✓ Done" : "✎ Edit"}
+              </button>
+              <button onClick={handleSignOut} style={{ background: "none", border: "1px solid var(--border2)", color: "var(--text3)", borderRadius: 6, padding: "7px 12px", fontSize: 11, cursor: "pointer" }}>
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -174,7 +223,6 @@ export default function Home() {
       <main>
         <div className="shell">
 
-          {/* GPA bar chart */}
           <div style={{ marginBottom: 36 }}>
             <p className="section-label">GPA — Semester Trend</p>
             <div className="gpa-chart">
@@ -184,8 +232,7 @@ export default function Home() {
                 const cls = gpaColor(gpa);
                 const col = cls === "kpi-high" ? "var(--high)" : cls === "kpi-mid" ? "var(--mid)" : cls === "kpi-low" ? "var(--low)" : "var(--scol)";
                 return (
-                  <div key={sem.id} className="gpa-bar-wrap" onClick={() => setActiveSem(sem.id)}
-                    title={`${sem.label}: GPA ${gpa ?? "—"}`}>
+                  <div key={sem.id} className="gpa-bar-wrap" onClick={() => setActiveSem(sem.id)} title={`${sem.label}: GPA ${gpa ?? "—"}`}>
                     <div className="gpa-bar-track">
                       <div className="gpa-bar-fill" style={{ height: `${pct}%`, background: col }} />
                     </div>
@@ -196,28 +243,19 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Semester tabs */}
           <div className="tabs-row">
             {semesters.map((sem) => (
-              <button key={sem.id}
-                className={`tab-btn${activeSem === sem.id ? " active" : ""}`}
-                onClick={() => setActiveSem(sem.id)}>
+              <button key={sem.id} className={`tab-btn${activeSem === sem.id ? " active" : ""}`} onClick={() => setActiveSem(sem.id)}>
                 {sem.roman}
               </button>
             ))}
           </div>
 
-          {/* Active semester panel */}
           {currentSem && (
             <div className="sem-panel">
-              {/* Header */}
               <div className="sem-panel-head">
-                <input
-                  className="sem-title-input"
-                  value={currentSem.label}
-                  readOnly={!editMode}
-                  onChange={(e) => updateSemLabel(currentSem.id, e.target.value)}
-                />
+                <input className="sem-title-input" value={currentSem.label} readOnly={!editMode}
+                  onChange={(e) => updateSemLabel(currentSem.id, e.target.value)} />
                 <div className="sem-head-right">
                   {(() => {
                     const g = computeGPA(currentSem.subjects);
@@ -225,18 +263,12 @@ export default function Home() {
                       ? <span className={`sem-gpa-display ${gpaColor(g)}`}>{g.toFixed(2)} GPA</span>
                       : <span className="sem-gpa-display" style={{ color: "var(--text3)" }}>— GPA</span>;
                   })()}
-                  {editMode && (
-                    <button className="btn-del-sem" onClick={() => deleteSemester(currentSem.id)}>
-                      ✕ Remove semester
-                    </button>
-                  )}
+                  {editMode && <button className="btn-del-sem" onClick={() => deleteSemester(currentSem.id)}>✕ Remove semester</button>}
                 </div>
               </div>
 
-              {/* Credit strip */}
               <CreditStrip subjects={currentSem.subjects} />
 
-              {/* Subject table */}
               <table className="subj-table">
                 <thead>
                   <tr>
@@ -280,9 +312,7 @@ export default function Home() {
                             <span className={`grade-pill ${gradeColor(subj.grade)}`}>{subj.grade}</span>
                           )}
                         </td>
-                        <td className="td-pts">
-                          <span className="pts-cell">{pts}</span>
-                        </td>
+                        <td className="td-pts"><span className="pts-cell">{pts}</span></td>
                         {editMode && (
                           <td className="td-action">
                             <button className="btn-del-row" onClick={() => deleteSubject(currentSem.id, subj.id)}>×</button>
@@ -292,7 +322,6 @@ export default function Home() {
                     );
                   })}
                 </tbody>
-                {/* Totals row */}
                 {(() => {
                   const { total, graded, earned } = semCredits(currentSem.subjects);
                   const totalPts = currentSem.subjects.reduce((a, s) =>
@@ -302,9 +331,7 @@ export default function Home() {
                       <tr className="totals-row">
                         <td colSpan={2} className="tot-label">Semester Total</td>
                         <td className="tot-val">{total} cr</td>
-                        <td className="tot-label" style={{ fontSize: 9 }}>
-                          {earned} earned · {graded} graded
-                        </td>
+                        <td className="tot-label" style={{ fontSize: 10 }}>{earned} earned · {graded} graded</td>
                         <td className="tot-val">{totalPts} pts</td>
                         {editMode && <td />}
                       </tr>
@@ -321,20 +348,17 @@ export default function Home() {
             </div>
           )}
 
-          {/* Grade legend */}
           <div style={{ marginBottom: 16 }}>
             <p className="section-label">Grade Scale</p>
             <div className="legend">
               {Object.entries(GRADE_POINTS).map(([g, p]) => (
-                <span key={g} className={`grade-pill ${gradeColor(g)}`}
-                  style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}>
+                <span key={g} className={`grade-pill ${gradeColor(g)}`} style={{ width: "auto", padding: "4px 10px", fontSize: 11 }}>
                   {g} = {p}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Bottom actions */}
           <div className="bottom-bar">
             {editMode && <button className="btn-add-sem" onClick={addSemester}>+ Add semester</button>}
             <button className="btn-reset" onClick={resetData}>↺ Reset to defaults</button>
@@ -344,7 +368,7 @@ export default function Home() {
       </main>
 
       <footer className="site-footer">
-        <p>Academic Record · All data saved in your browser</p>
+        <p>Academic Record · Logged in as {user?.email} · Auto-saved to cloud</p>
       </footer>
 
       {toast && <div className="toast">{toast}</div>}
