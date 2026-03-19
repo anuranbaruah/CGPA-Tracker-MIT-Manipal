@@ -5,28 +5,17 @@ import { supabase } from "../lib/supabase";
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleGoogle() {
     setLoading(true);
     setError(null);
-    setSuccess(null);
-    if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else setSuccess("Check your email to confirm, then log in.");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-      else router.push("/");
-    }
-    setLoading(false);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : "/" },
+    });
+    if (error) { setError(error.message); setLoading(false); }
   }
 
   function handleGuest() {
@@ -41,139 +30,68 @@ export default function Login() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
       </Head>
+      <div className="login-bg">
+        <div className="login-card">
+          <div className="login-logo">Academic<span>.</span>Record</div>
+          <p className="login-sub">Sign in to sync your grades across all your devices</p>
 
-      <div className="bg">
-        {/* Guest — top of page, always visible */}
-        <button className="btn-guest-top" onClick={handleGuest}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Continue as Guest — no sign up needed
-          <span className="arrow">→</span>
-        </button>
+          {error && <div className="msg error">{error}</div>}
 
-        <div className="card">
-          <div className="logo">Academic<span>.</span>Record</div>
+          <button className="btn-google" onClick={handleGoogle} disabled={loading}>
+            <svg width="18" height="18" viewBox="0 0 48 48" style={{flexShrink:0}}>
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              <path fill="none" d="M0 0h48v48H0z"/>
+            </svg>
+            {loading ? "Redirecting…" : "Continue with Google"}
+          </button>
 
-          <div className="toggle">
-            <button className={mode === "login" ? "active" : ""} onClick={() => { setMode("login"); setError(null); setSuccess(null); }}>Log in</button>
-            <button className={mode === "signup" ? "active" : ""} onClick={() => { setMode("signup"); setError(null); setSuccess(null); }}>Sign up</button>
-          </div>
+          <div className="divider"><span>or</span></div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required autoFocus />
-            </div>
-            <div className="field">
-              <label>Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
-            </div>
-            {error && <div className="msg error">{error}</div>}
-            {success && <div className="msg success">{success}</div>}
-            <button type="submit" className="btn-submit" disabled={loading}>
-              {loading ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
-            </button>
-          </form>
-
-          <p className="note">Guest data saves in this browser · Sign up to sync across devices</p>
+          <button className="btn-guest" onClick={handleGuest}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Continue as Guest
+          </button>
+          <p className="guest-note">Guest data is saved in this browser only — sign in with Google to sync across devices</p>
         </div>
       </div>
 
       <style jsx>{`
-        .bg {
-          min-height: 100vh;
-          background: #0a0a0f;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          gap: 16px;
-          font-family: 'Inter', sans-serif;
+        .login-bg {
+          min-height: 100vh; background: #0a0a0f;
+          display: flex; align-items: center; justify-content: center;
+          padding: 24px; font-family: 'Inter', sans-serif;
         }
-        .btn-guest-top {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(124,111,247,0.15);
-          border: 1px solid rgba(124,111,247,0.4);
-          border-radius: 50px;
-          color: #b8b0ff;
-          font-family: 'Inter', sans-serif;
-          font-size: 13px;
-          font-weight: 500;
-          padding: 10px 20px;
-          cursor: pointer;
-          transition: all 0.15s;
-          width: 100%;
-          max-width: 400px;
-          justify-content: center;
+        .login-card {
+          background: #111118; border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px; padding: 40px 36px; width: 100%; max-width: 400px;
         }
-        .btn-guest-top:hover {
-          background: rgba(124,111,247,0.28);
-          border-color: rgba(124,111,247,0.7);
-          color: #d4cfff;
-        }
-        .arrow { margin-left: 2px; font-size: 14px; }
-        .card {
-          background: #111118;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px;
-          padding: 32px;
-          width: 100%;
-          max-width: 400px;
-        }
-        .logo {
-          font-family: 'Syne', sans-serif;
-          font-size: 24px;
-          font-weight: 800;
-          color: #f0f0f8;
-          letter-spacing: -0.03em;
-          margin-bottom: 20px;
-        }
-        .logo span { color: #b8b0ff; }
-        .toggle {
-          display: flex;
-          background: #18181f;
-          border-radius: 8px;
-          padding: 3px;
-          margin-bottom: 20px;
-          gap: 3px;
-        }
-        .toggle button {
-          flex: 1; background: none; border: none;
-          color: #55556a; font-family: 'Inter', sans-serif;
-          font-size: 13px; font-weight: 500;
-          padding: 8px; border-radius: 6px; cursor: pointer;
-          transition: all 0.15s;
-        }
-        .toggle button.active { background: #7c6ff7; color: #fff; }
-        form { display: flex; flex-direction: column; gap: 14px; }
-        .field { display: flex; flex-direction: column; gap: 5px; }
-        .field label { font-size: 11px; color: #9090b0; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
-        .field input {
-          background: #18181f; border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 8px; padding: 10px 13px;
-          font-family: 'Inter', sans-serif; font-size: 14px;
-          color: #f0f0f8; outline: none; transition: border-color 0.15s;
-        }
-        .field input:focus { border-color: #7c6ff7; }
-        .field input::placeholder { color: #35354a; }
-        .msg { font-size: 12px; padding: 9px 12px; border-radius: 7px; line-height: 1.5; }
+        .login-logo { font-family: 'Syne', sans-serif; font-size: clamp(20px, 6vw, 26px); font-weight: 800; color: #f0f0f8; letter-spacing: -0.03em; margin-bottom: 6px; }
+        .login-logo span { color: #b8b0ff; }
+        .login-sub { font-size: 13px; color: #55556a; margin-bottom: 32px; line-height: 1.6; }
+        .msg { font-size: 13px; padding: 10px 14px; border-radius: 7px; line-height: 1.5; margin-bottom: 16px; }
         .msg.error { background: rgba(244,63,94,0.1); color: #f43f5e; border: 1px solid rgba(244,63,94,0.2); }
-        .msg.success { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
-        .btn-submit {
-          background: #7c6ff7; border: none; border-radius: 8px;
-          color: #fff; font-family: 'Inter', sans-serif;
-          font-size: 14px; font-weight: 600; padding: 11px;
-          cursor: pointer; transition: background 0.15s, opacity 0.15s;
-          margin-top: 2px;
+        .btn-google {
+          width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+          background: #fff; border: none; border-radius: 8px;
+          color: #1a1a1a; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+          padding: 12px 16px; cursor: pointer; transition: background 0.15s, opacity 0.15s;
         }
-        .btn-submit:hover { background: #6a5ef5; }
-        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .note {
-          font-size: 11px; color: #35354a;
-          text-align: center; margin-top: 16px; line-height: 1.5;
+        .btn-google:hover { background: #f0f0f0; }
+        .btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+        .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+        .divider span { font-size: 11px; color: #35354a; letter-spacing: 0.05em; }
+        .btn-guest {
+          width: 100%; background: none; border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 8px; color: #9090b0; font-family: 'Inter', sans-serif;
+          font-size: 13px; font-weight: 500; padding: 11px; cursor: pointer;
+          transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px;
         }
+        .btn-guest:hover { border-color: rgba(255,255,255,0.2); color: #f0f0f8; background: rgba(255,255,255,0.04); }
+        .guest-note { font-size: 11px; color: #35354a; text-align: center; margin-top: 12px; line-height: 1.5; }
       `}</style>
     </>
   );
