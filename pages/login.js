@@ -11,9 +11,12 @@ export default function Login() {
   async function handleGoogle() {
     setLoading(true);
     setError(null);
+    const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/`
+      : typeof window !== "undefined" ? `${window.location.origin}/` : "/";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : "/" },
+      options: { redirectTo },
     });
     if (error) { setError(error.message); setLoading(false); }
   }
@@ -66,9 +69,9 @@ export default function Login() {
         }
         .login-card {
           background: #111118; border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px; padding: 40px 36px; width: 100%; max-width: 400px;
+          border-radius: 14px; padding: 36px 32px; width: 100%; max-width: 420px; overflow: hidden;
         }
-        .login-logo { font-family: 'Syne', sans-serif; font-size: clamp(20px, 6vw, 26px); font-weight: 800; color: #f0f0f8; letter-spacing: -0.03em; margin-bottom: 6px; }
+        .login-logo { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #f0f0f8; letter-spacing: -0.02em; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .login-logo span { color: #b8b0ff; }
         .login-sub { font-size: 13px; color: #55556a; margin-bottom: 32px; line-height: 1.6; }
         .msg { font-size: 13px; padding: 10px 14px; border-radius: 7px; line-height: 1.5; margin-bottom: 16px; }
